@@ -2,11 +2,20 @@
 #include <gdiplus.h>
 using namespace Gdiplus;
 
-// Constructor - stores the pointer to the ToolLauncher
-ToolRenderer::ToolRenderer(ToolLauncher* launcher) : toolLauncher(launcher) {}
+// Constructor - stores the pointer to the ToolLauncher and creates cached fonts
+ToolRenderer::ToolRenderer(ToolLauncher* launcher) : toolLauncher(launcher) {
+    nameFont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+}
 
-// Destructor
-ToolRenderer::~ToolRenderer() {}
+// Destructor - clean up cached font
+ToolRenderer::~ToolRenderer() {
+    if (nameFont) {
+        DeleteObject(nameFont);
+        nameFont = nullptr;
+    }
+}
 
 //////////////////////////////////////////////////////////////////////
 // Function : DrawHeader
@@ -96,43 +105,24 @@ void ToolRenderer::DrawToolIcon(HDC hdc, const ToolInfo& tool, const RECT& rect)
     if (tool.icon) {
         HDC memDC = CreateCompatibleDC(hdc);
         HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, tool.icon);
-        int iconX = rect.left + (TOOL_BUTTON_SIZE - 64) / 2;
+        int iconX = rect.left + (TOOL_BUTTON_SIZE - TOOL_ICON_SIZE) / 2;
         int iconY = rect.top + 15;
-        BitBlt(hdc, iconX, iconY, 64, 64, memDC, 0, 0, SRCCOPY);
+        BitBlt(hdc, iconX, iconY, TOOL_ICON_SIZE, TOOL_ICON_SIZE, memDC, 0, 0, SRCCOPY);
         SelectObject(memDC, oldBitmap);
         DeleteDC(memDC);
     }
     else {
         // Red box placeholder with label
         HBRUSH redBrush = CreateSolidBrush(RGB(255, 0, 0));
-        RECT iconRect = { rect.left + (TOOL_BUTTON_SIZE - 64) / 2, rect.top + 15,
-                          rect.left + (TOOL_BUTTON_SIZE - 64) / 2 + 64, rect.top + 79 };
+        RECT iconRect = { rect.left + (TOOL_BUTTON_SIZE - TOOL_ICON_SIZE) / 2, rect.top + 15,
+                          rect.left + (TOOL_BUTTON_SIZE - TOOL_ICON_SIZE) / 2 + TOOL_ICON_SIZE,
+                          rect.top + 15 + TOOL_ICON_SIZE };
         FillRect(hdc, &iconRect, redBrush);
         DeleteObject(redBrush);
 
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, RGB(255, 255, 255));
         DrawText(hdc, L"NO ICON", -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////
-// Function : ConvertTopropercase
-// Purpose  : Changes string to Title Case
-//////////////////////////////////////////////////////////////////////
-void ToolRenderer::ConvertTopropercase(std::wstring& str) {
-    CharLowerBuffW(&str[0], str.length());
-    bool nextCap = true;
-    for (wchar_t& ch : str) {
-        if (iswspace(ch)) {
-            nextCap = true;
-        }
-        else if (nextCap && iswalpha(ch)) {
-            WCHAR temp[2] = { ch, L'\0' };
-            CharUpperBuffW(temp, 1);
-            ch = temp[0];
-            nextCap = false;
-        }
     }
 }
 
@@ -146,11 +136,9 @@ void ToolRenderer::DrawToolName(HDC hdc, const ToolInfo& tool, const RECT& rect)
 
     std::wstring name = tool.displayName;
     std::replace(name.begin(), name.end(), L'_', L' ');
-    ConvertTopropercase(name);
+    ToolLauncher::ConvertTopropercase(name);
 
-    HFONT nameFont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+    // Use cached font (avoids GDI handle leak from per-draw CreateFont)
     HFONT oldFont = (HFONT)SelectObject(hdc, nameFont);
 
     RECT textRect = { rect.left + 10, rect.top + 85, rect.right - 10, rect.bottom - 15 };
@@ -158,7 +146,6 @@ void ToolRenderer::DrawToolName(HDC hdc, const ToolInfo& tool, const RECT& rect)
         DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_EDITCONTROL);
 
     SelectObject(hdc, oldFont);
-    DeleteObject(nameFont);
 }
 
 //////////////////////////////////////////////////////////////////////

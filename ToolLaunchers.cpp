@@ -1,4 +1,4 @@
-﻿#include "Main.h"
+#include "Main.h"
 #include "ToolIconManager.h"
 #include "ToolScanner.h"
 #include "ToolRenderer.h"
@@ -31,6 +31,8 @@ ToolLauncher::ToolLauncher()
     buttonBrush = CreateSolidBrush(win11_surface);
     hoverBrush = CreateSolidBrush(win11_hover);
     accentBrush = CreateSolidBrush(win11_accent);
+    statusBarBrush = CreateSolidBrush(STATUS_BAR_BG);
+    searchPanelBrush = CreateSolidBrush(RGB(252, 252, 252));
 
     headerFont = CreateFont(32, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -43,6 +45,11 @@ ToolLauncher::ToolLauncher()
     searchFont = CreateFont(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
+
+    subtitleFont = CreateFont(
+        23, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Times New Roman");
 
     iconManager = make_unique<ToolIconManager>();
     scanner = make_unique<ToolScanner>(iconManager.get());
@@ -57,10 +64,13 @@ ToolLauncher::~ToolLauncher()
     DeleteObject(buttonBrush);
     DeleteObject(hoverBrush);
     DeleteObject(accentBrush);
+    DeleteObject(statusBarBrush);
+    DeleteObject(searchPanelBrush);
 
     DeleteObject(headerFont);
     DeleteObject(toolFont);
     DeleteObject(searchFont);
+    DeleteObject(subtitleFont);
 
     for (auto& tool : tools)
     {
@@ -139,7 +149,6 @@ void ToolLauncher::ScanForTools()
     scrollX = scrollY = 0;
 
     CalculateVirtualSize();
-    UpdateScrollBars();
     CalculateToolPositions();
     InvalidateRect(hwnd, nullptr, TRUE);
 }
@@ -157,8 +166,8 @@ void ToolLauncher::CalculateToolPositions()
             int col = static_cast<int>(i % COLS_PER_ROW);
             int row = static_cast<int>(i / COLS_PER_ROW);
 
-            int x = startX + col * (TOOL_BUTTON_SIZE + 16);
-            int y = startY + row * (TOOL_BUTTON_SIZE + 60);
+            int x = startX + col * (TOOL_BUTTON_SIZE + TOOL_GRID_SPACING);
+            int y = startY + row * (TOOL_BUTTON_SIZE + TOOL_ROW_EXTRA);
 
             filteredTools[i].rect = {
                 x - scrollX, y - scrollY,
@@ -219,7 +228,6 @@ void ToolLauncher::FilterTools(const std::wstring& searchText)
 
     scrollX = scrollY = 0;
     CalculateVirtualSize();
-    UpdateScrollBars();
     CalculateToolPositions();
     InvalidateRect(hwnd, nullptr, TRUE);
 }
@@ -241,7 +249,7 @@ void ToolLauncher::LaunchTool(int index)
     }
 }
 
-int ToolLauncher::GetToolAtPoint(POINT pt)
+int ToolLauncher::GetToolAtPoint(POINT pt) const
 {
     for (size_t i = 0; i < filteredTools.size(); ++i)
     {

@@ -1,4 +1,4 @@
-﻿#include "Main.h"
+#include "Main.h"
 #include "ToolRenderer.h"
 using namespace Gdiplus;
 
@@ -55,17 +55,10 @@ void ToolLauncher::OnPaint(HDC hdc)
     // 2. DRAW SUBTITLE TEXT (e.g., "Customization Tools")
     //----------------------------------------------
 
-    // Create a subtitle font (23pt Times New Roman)
-    HFONT subtitleFont = CreateFont(
-        23, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Times New Roman"
-    );
-
     // Change text color to predefined subtitle color
     SetTextColor(hdcMem, TOOLS_AVAILABLE_COLOR);
 
-    // Switch to subtitle font
+    // Switch to pre-created subtitle font (avoids per-paint GDI handle leak)
     SelectObject(hdcMem, subtitleFont);
 
     // Define rectangle area to draw the subtitle string
@@ -75,9 +68,8 @@ void ToolLauncher::OnPaint(HDC hdc)
     std::wstring subtitleText = L"Customization Tools";
     DrawText(hdcMem, subtitleText.c_str(), -1, &subtitleRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
-    // Restore old font and delete temporary subtitle font
+    // Restore old font
     SelectObject(hdcMem, oldFont);
-    DeleteObject(subtitleFont);
 
     //----------------------------------------------
     // 3. DRAW ALL TOOLS (icons and labels)

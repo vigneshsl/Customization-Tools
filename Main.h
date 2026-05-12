@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 // Windows & System Headers
 #include <windows.h>
@@ -35,6 +35,20 @@ constexpr int HEADER_HEIGHT = 80;
 constexpr int SEARCH_BOX_HEIGHT = 10;
 constexpr int TOOL_BUTTON_SIZE = 150;
 constexpr int COLS_PER_ROW = 8;
+
+// Layout padding & spacing
+constexpr int TOOL_GRID_SPACING = 16;
+constexpr int TOOL_LABEL_HEIGHT = 40;
+constexpr int TOOL_ROW_EXTRA = 60;
+constexpr int CONTENT_MARGIN = 32;
+constexpr int TOOL_ICON_SIZE = 64;
+constexpr int INVALIDATE_PADDING = 4;
+
+// Status bar colors
+constexpr COLORREF STATUS_BAR_BG = RGB(214, 226, 242);
+constexpr COLORREF STATUS_BAR_TEXT = RGB(64, 64, 64);
+constexpr COLORREF SEARCH_TEXT_COLOR = RGB(51, 51, 1);
+constexpr COLORREF SEARCH_ICON_COLOR = RGB(120, 120, 120);
 
 // Windows 11 Color Palette
 constexpr COLORREF win11_background = RGB(249, 249, 249);
@@ -90,15 +104,20 @@ private:
     ULONG_PTR gdiplusToken = 0;
     GdiplusStartupInput gdiplusStartupInput;
 
-    // GDI objects
+    // GDI objects — brushes
     HBRUSH backgroundBrush = nullptr;
     HBRUSH buttonBrush = nullptr;
     HBRUSH hoverBrush = nullptr;
     HBRUSH accentBrush = nullptr;
+    HBRUSH statusBarBrush = nullptr;
+    HBRUSH searchPanelBrush = nullptr;
+
+    // GDI objects — fonts
     HFONT headerFont = nullptr;
     HFONT toolFont = nullptr;
     HFONT searchFont = nullptr;
     HFONT modernFont = nullptr;
+    HFONT subtitleFont = nullptr;
 
     // Tool data
     std::vector<ToolInfo> tools;
@@ -132,15 +151,15 @@ private:
     void FilterTools(const std::wstring& searchText);
     void LaunchTool(int index);
     void CalculateToolPositions();
-    int GetToolAtPoint(POINT pt);
+    int GetToolAtPoint(POINT pt) const;
 
     // Drawing
     void OnPaint(HDC hdc);
     void UpdateDoubleBuffer(int width, int height);
     void CleanupDoubleBuffer();
-    void UpdateStatusText(const std::wstring& message, int toolCount);
-    void DrawSearchIcon(HDC hdc, int x, int y);
-    void ConvertTopropercase(std::wstring& str);
+    void UpdateStatusText(const std::wstring& message, int toolCount) const;
+    void DrawSearchIcon(HDC hdc, int x, int y) const;
+    static void ConvertTopropercase(std::wstring& str);
 
     // Scroll methods
     void UpdateScrollBars();

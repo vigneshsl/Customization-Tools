@@ -1,4 +1,4 @@
-﻿#include "ToolIconManager.h"
+#include "ToolIconManager.h"
 #include <algorithm>
 #include "Main.h"
 
@@ -34,11 +34,11 @@ HBITMAP ToolIconManager::CreateToolIcon(const std::wstring& extension, const std
     HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, hBitmap);
 
     //-----------------------------------------------
-    // Step 1: Fill icon background
+    // Step 1: Fill icon background with extension-specific color
     //-----------------------------------------------
-    HBRUSH brush = CreateSolidBrush(win11_background);   // Create background brush (Win11 theme color)
+    HBRUSH brush = GetIconBrush(extension);          // Color based on file type
     HBRUSH oldBrush = (HBRUSH)SelectObject(memDC, brush);
-    PatBlt(memDC, 0, 0, 64, 64, PATCOPY);                // Fill the whole 64x64 area
+    PatBlt(memDC, 0, 0, TOOL_ICON_SIZE, TOOL_ICON_SIZE, PATCOPY);
     SelectObject(memDC, oldBrush);                       // Restore previous brush
     DeleteObject(brush);                                 // Clean up brush
 
@@ -87,7 +87,7 @@ HBRUSH ToolIconManager::GetIconBrush(const std::wstring& extension) {
 ///////////////////////////////////////////////////////////////////////////
 void ToolIconManager::DrawIconText(HDC memDC, const std::wstring& extension) {
     SetBkMode(memDC, TRANSPARENT);                     // No background behind text
-    SetTextColor(memDC, RGB(0, 153, 51));              // Green color text
+    SetTextColor(memDC, RGB(255, 255, 255));            // White text for contrast on colored bg
 
     // Create emoji-capable font (Segoe UI Emoji)
     HFONT iconFont = CreateFont(

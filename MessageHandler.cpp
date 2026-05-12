@@ -1,4 +1,4 @@
-﻿#include "Main.h"
+#include "Main.h"
 
 ////////////////////////////////////////////////////////////////////////////////////
 //
@@ -88,9 +88,9 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             SendMessage(clearButton, WM_SETFONT, (WPARAM)modernFont, TRUE);
         }
 
-        // Set red text color for search box
+        // Set green text color for search box (applied via WM_CTLCOLOREDIT)
         HDC hdc = GetDC(searchBox);
-        SetTextColor(hdc, RGB(51, 255, 119)); // Red color
+        SetTextColor(hdc, RGB(51, 255, 119)); // Green highlight color
         ReleaseDC(searchBox, hdc);
 
         // Enhanced placeholder with better UX text
@@ -153,9 +153,8 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (dis->CtlID == 1003) // Search panel - simplified drawing
         {
-            // Modern Windows 11 acrylic-like background
-            HBRUSH bgBrush = CreateSolidBrush(RGB(252, 252, 252));
-            FillRect(dis->hDC, &dis->rcItem, bgBrush);
+            // Modern Windows 11 acrylic-like background (use pre-created brush)
+            FillRect(dis->hDC, &dis->rcItem, searchPanelBrush);
 
             // Subtle modern border
             HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(225, 225, 225));
@@ -172,7 +171,6 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
             SelectObject(dis->hDC, oldPen);
             DeleteObject(borderPen);
-            DeleteObject(bgBrush);
         }
         break;
     }
@@ -426,36 +424,26 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         case 1001:  // Search box
             if (HIWORD(wParam) == EN_CHANGE)
             {
-                // Use static buffer to avoid repeated allocations
-                static wchar_t searchBuffer[256];
+                wchar_t searchBuffer[256];
                 GetWindowText(searchBox, searchBuffer, 256);
 
                 bool hasText = searchBuffer[0] != L'\0';
                 ShowWindow(clearButton, hasText ? SW_SHOW : SW_HIDE);
 
+                // FilterTools already calls CalculateVirtualSize + CalculateToolPositions + InvalidateRect
                 FilterTools(searchBuffer);
                 UpdateStatusText(hasText ? L"Search results" : L"Ready",
                     static_cast<int>(filteredTools.size()));
-
-                // FIXED: Update scroll bars after filtering
-                CalculateVirtualSize();
-                UpdateScrollBars();
-                CalculateToolPositions();
-                InvalidateRect(hwnd, NULL, TRUE);
             }
             break;
 
         case 1005:  // Clear button
             SetWindowText(searchBox, L"");
             SetFocus(searchBox);
-            FilterTools(L"");
             ShowWindow(clearButton, SW_HIDE);
+            // FilterTools already handles scroll recalculation and invalidation
+            FilterTools(L"");
             UpdateStatusText(L"Search cleared", static_cast<int>(filteredTools.size()));
-            // FIXED: Update scroll bars after clearing
-            CalculateVirtualSize();
-            UpdateScrollBars();
-            CalculateToolPositions();
-            InvalidateRect(hwnd, NULL, TRUE);
             break;
         }
         break;
@@ -471,8 +459,8 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (hwndControl == searchBox)
         {
-            SetTextColor(hdc, RGB(51, 51, 1)); // Red text
-            SetBkColor(hdc, RGB(255, 255, 255)); // White background
+            SetTextColor(hdc, SEARCH_TEXT_COLOR); // Dark olive text
+            SetBkColor(hdc, RGB(255, 255, 255));  // White background
 
             return (LRESULT)GetStockObject(WHITE_BRUSH);
         }
@@ -486,9 +474,9 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (hwndControl == statusBar)
         {
-            SetTextColor(hdc, RGB(64, 64, 64)); // Dark gray text
-            SetBkColor(hdc, RGB(214, 226, 242)); // Light blue background
-            return (LRESULT)CreateSolidBrush(RGB(214, 226, 242));
+            SetTextColor(hdc, STATUS_BAR_TEXT);  // Dark gray text
+            SetBkColor(hdc, STATUS_BAR_BG);      // Light blue background
+            return (LRESULT)statusBarBrush;       // Use pre-created brush (no leak)
         }
         break;
     }
@@ -502,23 +490,16 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         {
         case VK_F5:  // Refresh
             ScanForTools();
-            CalculateVirtualSize();
-            UpdateScrollBars();
-            CalculateToolPositions();
-            InvalidateRect(hwnd, NULL, TRUE);
             UpdateStatusText(L"Tools refreshed", static_cast<int>(filteredTools.size()));
             break;
 
         case VK_ESCAPE:  // Clear search
             SetWindowText(searchBox, L"");
             SetFocus(searchBox);
-            FilterTools(L"");
             ShowWindow(clearButton, SW_HIDE);
-            CalculateVirtualSize();
-            UpdateScrollBars();
-            CalculateToolPositions();
+            // FilterTools already handles scroll recalculation and invalidation
+            FilterTools(L"");
             UpdateStatusText(L"Search cleared", static_cast<int>(filteredTools.size()));
-            InvalidateRect(hwnd, NULL, TRUE);
             break;
 
         case VK_RETURN:  // Quick launch
@@ -741,7 +722,7 @@ LRESULT CALLBACK ToolLauncher::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Optimized status text update
-void ToolLauncher::UpdateStatusText(const std::wstring& message, int toolCount)
+void ToolLauncher::UpdateStatusText(const std::wstring& message, int toolCount) const
 {
     if (!statusBar) return;
 
@@ -750,9 +731,9 @@ void ToolLauncher::UpdateStatusText(const std::wstring& message, int toolCount)
 }
 
 // Optimized search icon drawing
-void ToolLauncher::DrawSearchIcon(HDC hdc, int x, int y)
+void ToolLauncher::DrawSearchIcon(HDC hdc, int x, int y) const
 {
-    HPEN iconPen = CreatePen(PS_SOLID, 2, RGB(120, 120, 120));
+    HPEN iconPen = CreatePen(PS_SOLID, 2, SEARCH_ICON_COLOR);
     HPEN oldPen = (HPEN)SelectObject(hdc, iconPen);
 
     // Draw magnifying glass circle
@@ -767,14 +748,14 @@ void ToolLauncher::DrawSearchIcon(HDC hdc, int x, int y)
     DeleteObject(iconPen);
 }
 
-// Convert to proper case function (existing)
+// Convert to proper case function
 void ToolLauncher::ConvertTopropercase(std::wstring& str)
 {
     if (str.empty()) return;
 
     CharLowerBuffW(&str[0], static_cast<DWORD>(str.length()));
 
-    BOOLEAN titlenext = true;
+    bool titlenext = true;
     for (size_t i = 0; i < str.length(); i++) {
         if (iswspace(str[i])) {
             titlenext = true;
@@ -951,20 +932,15 @@ void ToolLauncher::HandleVerticalScroll(WPARAM wParam)
     }
 }
 void ToolLauncher::InvalidateToolRegion(int toolId) {
-    // Example implementation - adjust based on your tool layout
-    RECT toolRect;
+    // Validate tool index before accessing filteredTools
+    if (toolId < 0 || toolId >= static_cast<int>(filteredTools.size())) return;
 
-    // Calculate the rectangle for the specific tool
-    // This depends on your UI layout - you'll need to adjust this
-    int toolWidth = 50;  // Example width
-    int toolHeight = 50; // Example height
-    int spacing = 10;    // Example spacing
+    // Use the actual tool bounding rectangle
+    RECT toolRect = filteredTools[toolId].rect;
 
-    toolRect.left = toolId * (toolWidth + spacing);
-    toolRect.top = 0;
-    toolRect.right = toolRect.left + toolWidth;
-    toolRect.bottom = toolRect.top + toolHeight;
+    // Inflate slightly to include shadow and border
+    InflateRect(&toolRect, INVALIDATE_PADDING, INVALIDATE_PADDING);
 
-    // Invalidate the specific region
+    // Invalidate only the specific tool region
     InvalidateRect(hwnd, &toolRect, TRUE);
 }

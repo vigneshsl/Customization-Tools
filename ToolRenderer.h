@@ -37,6 +37,7 @@ public:
 
 private:
     ToolLauncher* toolLauncher;  // Reference to parent window/controller
+    HFONT nameFont = nullptr;    // Cached font for tool name drawing
 
     ///////////////////////////////////////////////////////////////////////////
     // Private Helper Methods (Internally used by DrawTool and DrawHeader)
@@ -44,9 +45,6 @@ private:
 
     // Draws the tool icon (bitmap) or fallback if missing
     void DrawToolIcon(HDC hdc, const ToolInfo& tool, const RECT& rect);
-
-    // Converts a string to Proper Case (title format)
-    void ConvertTopropercase(std::wstring& str);
 
     // Draws the tool name below the icon (handles wrapping and formatting)
     void DrawToolName(HDC hdc, const ToolInfo& tool, const RECT& rect);

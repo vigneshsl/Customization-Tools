@@ -22,7 +22,7 @@ public:
     // Constructor: Requires a reference to ToolLauncher (for layout, state, etc.)
     ToolRenderer(ToolLauncher* launcher);
 
-    // Destructor: Currently no dynamic cleanup needed
+    // Destructor: Cleans up cached GDI font objects
     ~ToolRenderer();
 
     ///////////////////////////////////////////////////////////////////////////

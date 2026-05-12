@@ -1,0 +1,55 @@
+# ═══════════════════════════════════════════════════════════════
+# .gitignore — Customization Tools
+# ═══════════════════════════════════════════════════════════════
+
+# ── Visual Studio Build Output ───────────────────────────────
+Debug/
+Release/
+x64/
+x86/
+*.obj
+*.pch
+*.pdb
+*.ilk
+*.idb
+*.exe
+*.dll
+*.lib
+*.log
+*.tlog
+*.lastbuildstate
+*.iobj
+*.ipdb
+*.exp
+
+# ── Visual Studio User/Cache Files ───────────────────────────
+.vs/
+*.suo
+*.user
+*.aps
+*.ncb
+*.sdf
+*.opensdf
+*.cachefile
+*.VC.db
+*.VC.opendb
+ipch/
+
+# ── Inno Setup Output ───────────────────────────────────────
+installer_output/
+
+# ── OS Files ─────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# ── Python Cache ─────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Empty Placeholder Files ──────────────────────────────────
+createwindow.cpp
+createwindow.h
+walkthrough.md

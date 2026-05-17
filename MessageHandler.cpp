@@ -1,19 +1,23 @@
-﻿#include "Main.h"
+#include "Main.h"
 
-////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// MessageHandler.cpp — Window Message Handling
 //
-// ToolLauncher::HandleMessage - Windows 11 Style Optimized UI
-// This function handles Windows messages for the ToolLauncher window.
-// FIXED: Mouse hover flickering issue resolved with proper invalidation
-//
-////////////////////////////////////////////////////////////////////////////////////
+// Processes all Windows messages for the ToolLauncher window:
+//   - WM_CREATE:  Build UI controls (search box, status bar, clear button)
+//   - WM_PAINT:   Double-buffered rendering via OnPaint()
+//   - WM_SIZE:    Responsive layout for search bar and tool grid
+//   - WM_MOUSE*:  Hover effects and tool launching
+//   - WM_KEYDOWN: Keyboard shortcuts (F5, Esc, Ctrl+F, Enter, arrows)
+//   - WM_SCROLL:  Scroll bar and mouse wheel handling
+///////////////////////////////////////////////////////////////////////////////
 
 LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
     {
         // ═══════════════════════════════════════════════════════════════
-        // 1. WINDOW CREATION - Optimized Search & Status Bar
+        // 1. WINDOW CREATION — Build search bar, status bar, and scan tools
         // ═══════════════════════════════════════════════════════════════
     case WM_CREATE:
     {
@@ -74,7 +78,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             hwnd, (HMENU)1005, GetModuleHandle(NULL), NULL);
 
         // ──────────────────────────────────────────────────────────
-        // MODIFIED FONT CREATION - Red Font Color
+        // FONT CREATION — Modern font for search and status controls
         // ──────────────────────────────────────────────────────────
         modernFont = CreateFont(
             20, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
@@ -88,9 +92,9 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             SendMessage(clearButton, WM_SETFONT, (WPARAM)modernFont, TRUE);
         }
 
-        // Set red text color for search box
+        // Set green text color for search box (applied via WM_CTLCOLOREDIT)
         HDC hdc = GetDC(searchBox);
-        SetTextColor(hdc, RGB(51, 255, 119)); // Red color
+        SetTextColor(hdc, RGB(51, 255, 119)); // Green highlight color
         ReleaseDC(searchBox, hdc);
 
         // Enhanced placeholder with better UX text
@@ -102,7 +106,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             MAKELPARAM(8, 8));
 
         // ──────────────────────────────────────────────────────────
-        // MODIFIED STATUS BAR 
+        // STATUS BAR — Bottom info bar with tool count
         // ──────────────────────────────────────────────────────────
         statusBar = CreateWindowEx(
             0, STATUSCLASSNAME, NULL,
@@ -114,14 +118,14 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
             int statusParts[] = { -1 };
             SendMessage(statusBar, SB_SETPARTS, 1, (LPARAM)statusParts);
 
-            // Apply modern font with red color
+            // Apply modern font to status bar
             if (modernFont)
             {
                 SendMessage(statusBar, WM_SETFONT, (WPARAM)modernFont, TRUE);
             }
 
-            // Set green background for status bar
-            SendMessage(statusBar, SB_SETBKCOLOR, 0, RGB(214, 226, 242));
+            // Set light blue background for status bar
+            SendMessage(statusBar, SB_SETBKCOLOR, 0, STATUS_BAR_BG);
         }
 
         // Apply modern theming
@@ -145,7 +149,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 2. OPTIMIZED CUSTOM DRAWING
+    // 2. OWNER-DRAWN SEARCH PANEL — Custom rendering for search container
     // ═══════════════════════════════════════════════════════════════
     case WM_DRAWITEM:
     {
@@ -153,9 +157,8 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (dis->CtlID == 1003) // Search panel - simplified drawing
         {
-            // Modern Windows 11 acrylic-like background
-            HBRUSH bgBrush = CreateSolidBrush(RGB(252, 252, 252));
-            FillRect(dis->hDC, &dis->rcItem, bgBrush);
+            // Modern Windows 11 acrylic-like background (use pre-created brush)
+            FillRect(dis->hDC, &dis->rcItem, searchPanelBrush);
 
             // Subtle modern border
             HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(225, 225, 225));
@@ -172,31 +175,28 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
             SelectObject(dis->hDC, oldPen);
             DeleteObject(borderPen);
-            DeleteObject(bgBrush);
         }
         break;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 3. ENHANCED PAINTING WITH WINDOWS 11 AESTHETICS
+    // 3. PAINTING — Fill background and delegate to double-buffered OnPaint()
     // ═══════════════════════════════════════════════════════════════
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
-        // Set modern background color
-        HBRUSH backgroundBrush = CreateSolidBrush(RGB(255, 255, 255));
-        FillRect(hdc, &ps.rcPaint, backgroundBrush);
-        DeleteObject(backgroundBrush);
+        // Fill dirty region with white background
+        FillRect(hdc, &ps.rcPaint, buttonBrush);  // Use pre-created white brush
 
-        OnPaint(hdc);  // Call custom painting function
+        OnPaint(hdc);  // Double-buffered rendering
         EndPaint(hwnd, &ps);
         break;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 4. OPTIMIZED RESIZE HANDLING - Performance Focused
+    // 4. RESIZE — Reposition controls and recalculate layout
     // ═══════════════════════════════════════════════════════════════
     case WM_SIZE:
     {
@@ -250,7 +250,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 5. FIXED MOUSE INTERACTION - NO MORE FLICKERING
+    // 5. MOUSE HOVER — Track which tool the cursor is over
     // ═══════════════════════════════════════════════════════════════
     case WM_MOUSEMOVE:
     {
@@ -325,7 +325,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 5a. MOUSE LEAVE HANDLING - Prevent Stuck Hover States
+    // 5a. MOUSE LEAVE — Reset hover state when cursor exits window
     // ═══════════════════════════════════════════════════════════════
     case WM_MOUSELEAVE:
     {
@@ -343,7 +343,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 6. ENHANCED BUTTON CLICK HANDLING
+    // 6. MOUSE CLICK — Select and launch tool cards
     // ═══════════════════════════════════════════════════════════════
     case WM_LBUTTONDOWN:
     {
@@ -417,7 +417,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 7. MODIFIED COMMAND HANDLING - Red Font Color Support
+    // 7. SEARCH COMMAND — Handle text changes and clear button
     // ═══════════════════════════════════════════════════════════════
     case WM_COMMAND:
     {
@@ -426,43 +426,33 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         case 1001:  // Search box
             if (HIWORD(wParam) == EN_CHANGE)
             {
-                // Use static buffer to avoid repeated allocations
-                static wchar_t searchBuffer[256];
+                wchar_t searchBuffer[256];
                 GetWindowText(searchBox, searchBuffer, 256);
 
                 bool hasText = searchBuffer[0] != L'\0';
                 ShowWindow(clearButton, hasText ? SW_SHOW : SW_HIDE);
 
+                // FilterTools already calls CalculateVirtualSize + CalculateToolPositions + InvalidateRect
                 FilterTools(searchBuffer);
                 UpdateStatusText(hasText ? L"Search results" : L"Ready",
                     static_cast<int>(filteredTools.size()));
-
-                // FIXED: Update scroll bars after filtering
-                CalculateVirtualSize();
-                UpdateScrollBars();
-                CalculateToolPositions();
-                InvalidateRect(hwnd, NULL, TRUE);
             }
             break;
 
         case 1005:  // Clear button
             SetWindowText(searchBox, L"");
             SetFocus(searchBox);
-            FilterTools(L"");
             ShowWindow(clearButton, SW_HIDE);
+            // FilterTools already handles scroll recalculation and invalidation
+            FilterTools(L"");
             UpdateStatusText(L"Search cleared", static_cast<int>(filteredTools.size()));
-            // FIXED: Update scroll bars after clearing
-            CalculateVirtualSize();
-            UpdateScrollBars();
-            CalculateToolPositions();
-            InvalidateRect(hwnd, NULL, TRUE);
             break;
         }
         break;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 8. ADDED COLOR CONTROL FOR CONTROLS
+    // 8. CONTROL COLORS — Custom text and background for edit/static
     // ═══════════════════════════════════════════════════════════════
     case WM_CTLCOLOREDIT:
     {
@@ -471,8 +461,8 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (hwndControl == searchBox)
         {
-            SetTextColor(hdc, RGB(51, 51, 1)); // Red text
-            SetBkColor(hdc, RGB(255, 255, 255)); // White background
+            SetTextColor(hdc, SEARCH_TEXT_COLOR); // Dark olive text
+            SetBkColor(hdc, RGB(255, 255, 255));  // White background
 
             return (LRESULT)GetStockObject(WHITE_BRUSH);
         }
@@ -486,15 +476,15 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 
         if (hwndControl == statusBar)
         {
-            SetTextColor(hdc, RGB(64, 64, 64)); // Dark gray text
-            SetBkColor(hdc, RGB(214, 226, 242)); // Light blue background
-            return (LRESULT)CreateSolidBrush(RGB(214, 226, 242));
+            SetTextColor(hdc, STATUS_BAR_TEXT);  // Dark gray text
+            SetBkColor(hdc, STATUS_BAR_BG);      // Light blue background
+            return (LRESULT)statusBarBrush;       // Use pre-created brush (no leak)
         }
         break;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 9. ENHANCED KEYBOARD SHORTCUTS
+    // 9. KEYBOARD SHORTCUTS — F5, Esc, Enter, Ctrl+F, arrows, etc.
     // ═══════════════════════════════════════════════════════════════
     case WM_KEYDOWN:
     {
@@ -502,23 +492,16 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         {
         case VK_F5:  // Refresh
             ScanForTools();
-            CalculateVirtualSize();
-            UpdateScrollBars();
-            CalculateToolPositions();
-            InvalidateRect(hwnd, NULL, TRUE);
             UpdateStatusText(L"Tools refreshed", static_cast<int>(filteredTools.size()));
             break;
 
         case VK_ESCAPE:  // Clear search
             SetWindowText(searchBox, L"");
             SetFocus(searchBox);
-            FilterTools(L"");
             ShowWindow(clearButton, SW_HIDE);
-            CalculateVirtualSize();
-            UpdateScrollBars();
-            CalculateToolPositions();
+            // FilterTools already handles scroll recalculation and invalidation
+            FilterTools(L"");
             UpdateStatusText(L"Search cleared", static_cast<int>(filteredTools.size()));
-            InvalidateRect(hwnd, NULL, TRUE);
             break;
 
         case VK_RETURN:  // Quick launch
@@ -624,7 +607,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 10. TIMER FOR STATUS MESSAGES
+    // 10. TIMER — Auto-clear "Launched: ..." status after 3 seconds
     // ═══════════════════════════════════════════════════════════════
     case WM_TIMER:
         if (wParam == 1)
@@ -635,7 +618,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         break;
 
         // ═══════════════════════════════════════════════════════════════
-        // 11. FOCUS MANAGEMENT
+        // 11. FOCUS — Auto-focus search box when window receives focus
         // ═══════════════════════════════════════════════════════════════
     case WM_SETFOCUS:
         if (searchBox)
@@ -643,13 +626,13 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         break;
 
         // ═══════════════════════════════════════════════════════════════
-        // 12. PREVENT FLICKERING
+        // 12. ERASE BACKGROUND — Return 1 to prevent flicker (we paint everything)
         // ═══════════════════════════════════════════════════════════════
     case WM_ERASEBKGND:
         return 1;
 
         // ═══════════════════════════════════════════════════════════════
-        // 13. WINDOW DESTRUCTION WITH PROPER CLEANUP
+        // 13. CLEANUP — Delete WM_CREATE-allocated fonts on window close
         // ═══════════════════════════════════════════════════════════════
     case WM_DESTROY:
         if (modernFont) {
@@ -709,7 +692,7 @@ LRESULT ToolLauncher::HandleMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// STATIC WINDOW PROCEDURE
+// WndProc — Static window procedure (routes messages to instance HandleMessage)
 // ═══════════════════════════════════════════════════════════════════════════════
 LRESULT CALLBACK ToolLauncher::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -736,12 +719,110 @@ LRESULT CALLBACK ToolLauncher::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// CreateUIControls — Build all child controls (called once from WM_CREATE)
+//
+// Creates: search panel, search edit box, clear button, status bar.
+// Sets fonts, placeholder text, theming, and triggers initial tool scan.
+///////////////////////////////////////////////////////////////////////////////
+void ToolLauncher::CreateUIControls()
+{
+    // Initialize common Windows controls
+    INITCOMMONCONTROLSEX icex = { sizeof(icex), ICC_WIN95_CLASSES | ICC_STANDARD_CLASSES };
+    InitCommonControlsEx(&icex);
+
+    RECT clientRect;
+    GetClientRect(hwnd, &clientRect);
+
+    // ── Search Panel (owner-drawn container) ────────────────────────
+    const int SEARCH_MAX_WIDTH = 600;
+    const int SEARCH_HEIGHT = 48;
+    const int SEARCH_MARGIN = 60;
+
+    int searchWidth = min(SEARCH_MAX_WIDTH, clientRect.right - SEARCH_MARGIN);
+    int searchX = (clientRect.right - searchWidth) / 2;
+    int searchY = HEADER_HEIGHT + 16;
+
+    searchPanel = CreateWindowEx(
+        WS_EX_COMPOSITED, L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_OWNERDRAW | SS_NOTIFY,
+        searchX, searchY, searchWidth, SEARCH_HEIGHT,
+        hwnd, HMENU_ID(IDC_SEARCH_PANEL), GetModuleHandle(NULL), NULL);
+
+    // ── Search Edit Box ─────────────────────────────────────────────
+    const int ICON_SPACE = 40;
+    const int CLEAR_SPACE = 36;
+    const int BOX_HEIGHT = 32;
+
+    searchBox = CreateWindowEx(
+        WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
+        searchX + ICON_SPACE,
+        searchY + (SEARCH_HEIGHT - BOX_HEIGHT) / 2,
+        searchWidth - ICON_SPACE - CLEAR_SPACE,
+        BOX_HEIGHT,
+        hwnd, HMENU_ID(IDC_SEARCH_BOX), GetModuleHandle(NULL), NULL);
+
+    // ── Clear Button ────────────────────────────────────────────────
+    clearButton = CreateWindowEx(
+        0, L"BUTTON", L"x",
+        WS_CHILD | BS_FLAT | WS_TABSTOP | BS_CENTER | BS_VCENTER,
+        searchX + searchWidth - 32,
+        searchY + (SEARCH_HEIGHT - 28) / 2,
+        28, 28,
+        hwnd, HMENU_ID(IDC_CLEAR_BUTTON), GetModuleHandle(NULL), NULL);
+
+    // ── Font Setup ──────────────────────────────────────────────────
+    modernFont = CreateFont(
+        18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS,
+        L"Segoe UI Variable Text");
+
+    if (modernFont) {
+        SendMessage(searchBox, WM_SETFONT, (WPARAM)modernFont, TRUE);
+        SendMessage(clearButton, WM_SETFONT, (WPARAM)modernFont, TRUE);
+    }
+
+    // Search box placeholder and margins
+    SendMessage(searchBox, EM_SETCUEBANNER, TRUE, (LPARAM)L"Search tools...");
+    SendMessage(searchBox, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(8, 8));
+
+    // ── Status Bar ──────────────────────────────────────────────────
+    statusBar = CreateWindowEx(
+        0, STATUSCLASSNAME, NULL,
+        WS_CHILD | WS_VISIBLE | CCS_BOTTOM,
+        0, 0, 0, 0,
+        hwnd, HMENU_ID(IDC_STATUS_BAR), GetModuleHandle(NULL), NULL);
+
+    if (statusBar) {
+        int statusParts[] = { -1 };
+        SendMessage(statusBar, SB_SETPARTS, 1, (LPARAM)statusParts);
+        if (modernFont)
+            SendMessage(statusBar, WM_SETFONT, (WPARAM)modernFont, TRUE);
+        SendMessage(statusBar, SB_SETBKCOLOR, 0, STATUS_BAR_BG);
+    }
+
+    // ── Theming & Initial State ─────────────────────────────────────
+    SetWindowTheme(searchBox, L"Explorer", NULL);
+    SetWindowTheme(statusBar, L"Explorer", NULL);
+    ShowWindow(clearButton, SW_HIDE);
+
+    hoveredTool = -1;
+    lastHoveredTool = -1;
+    isTrackingMouse = false;
+
+    // Scan tools and set initial status
+    ScanForTools();
+    UpdateStatusText(L"Ready", static_cast<int>(filteredTools.size()));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS - New Optimized Functions
+// Helper Functions
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Optimized status text update
-void ToolLauncher::UpdateStatusText(const std::wstring& message, int toolCount)
+/// Updates the status bar text with format: "<message> • <count> Tools"
+void ToolLauncher::UpdateStatusText(const std::wstring& message, int toolCount) const
 {
     if (!statusBar) return;
 
@@ -749,10 +830,10 @@ void ToolLauncher::UpdateStatusText(const std::wstring& message, int toolCount)
     SendMessage(statusBar, SB_SETTEXT, 0, (LPARAM)statusText.c_str());
 }
 
-// Optimized search icon drawing
-void ToolLauncher::DrawSearchIcon(HDC hdc, int x, int y)
+/// Draws a small magnifying glass icon at the given position
+void ToolLauncher::DrawSearchIcon(HDC hdc, int x, int y) const
 {
-    HPEN iconPen = CreatePen(PS_SOLID, 2, RGB(120, 120, 120));
+    HPEN iconPen = CreatePen(PS_SOLID, 2, SEARCH_ICON_COLOR);
     HPEN oldPen = (HPEN)SelectObject(hdc, iconPen);
 
     // Draw magnifying glass circle
@@ -767,14 +848,14 @@ void ToolLauncher::DrawSearchIcon(HDC hdc, int x, int y)
     DeleteObject(iconPen);
 }
 
-// Convert to proper case function (existing)
+/// Converts a string to Title Case (e.g., "hello world" → "Hello World")
 void ToolLauncher::ConvertTopropercase(std::wstring& str)
 {
     if (str.empty()) return;
 
     CharLowerBuffW(&str[0], static_cast<DWORD>(str.length()));
 
-    BOOLEAN titlenext = true;
+    bool titlenext = true;
     for (size_t i = 0; i < str.length(); i++) {
         if (iswspace(str[i])) {
             titlenext = true;
@@ -788,7 +869,7 @@ void ToolLauncher::ConvertTopropercase(std::wstring& str)
     }
 }
 
-// Calculate virtual content size
+/// Calculates total content dimensions based on tool count and view mode
 void ToolLauncher::CalculateVirtualSize()
 {
     if (filteredTools.empty()) {
@@ -811,7 +892,7 @@ void ToolLauncher::CalculateVirtualSize()
     }
 }
 
-// Update scroll bar information
+/// Updates scroll bar ranges and visibility based on content vs client size
 void ToolLauncher::UpdateScrollBars()
 {
     RECT clientRect;
@@ -875,7 +956,7 @@ void ToolLauncher::UpdateScrollBars()
     }
 }
 
-// Handle horizontal scroll messages
+/// Processes WM_HSCROLL messages (line, page, thumb tracking)
 void ToolLauncher::HandleHorizontalScroll(WPARAM wParam)
 {
     int oldScrollX = scrollX;
@@ -913,7 +994,7 @@ void ToolLauncher::HandleHorizontalScroll(WPARAM wParam)
     }
 }
 
-// Handle vertical scroll messages
+/// Processes WM_VSCROLL messages (line, page, thumb tracking)
 void ToolLauncher::HandleVerticalScroll(WPARAM wParam)
 {
     int oldScrollY = scrollY;
@@ -951,20 +1032,15 @@ void ToolLauncher::HandleVerticalScroll(WPARAM wParam)
     }
 }
 void ToolLauncher::InvalidateToolRegion(int toolId) {
-    // Example implementation - adjust based on your tool layout
-    RECT toolRect;
+    // Validate tool index before accessing filteredTools
+    if (toolId < 0 || toolId >= static_cast<int>(filteredTools.size())) return;
 
-    // Calculate the rectangle for the specific tool
-    // This depends on your UI layout - you'll need to adjust this
-    int toolWidth = 50;  // Example width
-    int toolHeight = 50; // Example height
-    int spacing = 10;    // Example spacing
+    // Use the actual tool bounding rectangle
+    RECT toolRect = filteredTools[toolId].rect;
 
-    toolRect.left = toolId * (toolWidth + spacing);
-    toolRect.top = 0;
-    toolRect.right = toolRect.left + toolWidth;
-    toolRect.bottom = toolRect.top + toolHeight;
+    // Inflate slightly to include shadow and border
+    InflateRect(&toolRect, INVALIDATE_PADDING, INVALIDATE_PADDING);
 
-    // Invalidate the specific region
+    // Invalidate only the specific tool region
     InvalidateRect(hwnd, &toolRect, TRUE);
 }

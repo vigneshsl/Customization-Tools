@@ -13,8 +13,9 @@ class ToolLauncher;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Class: ToolRenderer
-// Purpose: Responsible for drawing tool launcher UI elements using GDI+
-//          This includes headers, tool buttons, icons, and labels.
+// Purpose: Responsible for drawing premium tool launcher UI elements using
+//          GDI+. Renders modern card layouts with shadows, rounded corners,
+//          hover elevation, accent borders, and formatted text.
 ///////////////////////////////////////////////////////////////////////////////
 class ToolRenderer
 {
@@ -22,37 +23,29 @@ public:
     // Constructor: Requires a reference to ToolLauncher (for layout, state, etc.)
     ToolRenderer(ToolLauncher* launcher);
 
-    // Destructor: Currently no dynamic cleanup needed
+    // Destructor: Cleans up cached GDI font objects
     ~ToolRenderer();
 
     ///////////////////////////////////////////////////////////////////////////
     // Public Drawing Methods
     ///////////////////////////////////////////////////////////////////////////
 
-    // Draws the top header (title + subtitle with tool count)
-    void DrawHeader(HDC hdc, const RECT& clientRect, int toolCount);
-
-    // Draws a single tool button (icon, name, and hover effect)
+    // Draws a single tool button (icon, name, hover effect with elevation)
     void DrawTool(HDC hdc, const ToolInfo& tool, int index, bool isHovered);
 
 private:
     ToolLauncher* toolLauncher;  // Reference to parent window/controller
+    HFONT nameFont = nullptr;    // Cached font for tool name drawing
 
     ///////////////////////////////////////////////////////////////////////////
-    // Private Helper Methods (Internally used by DrawTool and DrawHeader)
+    // Private Helper Methods (Internally used by DrawTool)
     ///////////////////////////////////////////////////////////////////////////
 
     // Draws the tool icon (bitmap) or fallback if missing
     void DrawToolIcon(HDC hdc, const ToolInfo& tool, const RECT& rect);
 
-    // Converts a string to Proper Case (title format)
-    void ConvertTopropercase(std::wstring& str);
-
     // Draws the tool name below the icon (handles wrapping and formatting)
     void DrawToolName(HDC hdc, const ToolInfo& tool, const RECT& rect);
-
-    // [Optional] Draws a badge showing file extension like ".EXE" in corner
-    void DrawExtensionBadge(HDC hdc, const ToolInfo& tool, const RECT& rect);
 
     ///////////////////////////////////////////////////////////////////////////
     // Rounded Rectangle Drawing Helpers (GDI+ based)

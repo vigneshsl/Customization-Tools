@@ -1,4 +1,4 @@
-﻿#include "ToolIconManager.h"
+#include "ToolIconManager.h"
 #include <algorithm>
 #include "Main.h"
 
@@ -16,8 +16,8 @@ ToolIconManager::~ToolIconManager() {}
 
 ///////////////////////////////////////////////////////////////////////////
 // Function   : CreateToolIcon
-// Purpose    : Creates a 64x64 custom icon bitmap for the tool based on its
-//              file extension or name.
+// Purpose    : Creates a modern 64x64 icon bitmap with gradient background,
+//              rounded appearance, and bold extension text label.
 // Returns    : HBITMAP handle to the created icon image.
 ///////////////////////////////////////////////////////////////////////////
 HBITMAP ToolIconManager::CreateToolIcon(const std::wstring& extension, const std::wstring& toolName) {
@@ -28,27 +28,28 @@ HBITMAP ToolIconManager::CreateToolIcon(const std::wstring& extension, const std
     HDC memDC = CreateCompatibleDC(hdc);
 
     // Create a 64x64 bitmap compatible with screen DC
-    HBITMAP hBitmap = CreateCompatibleBitmap(hdc, 64, 64);
+    HBITMAP hBitmap = CreateCompatibleBitmap(hdc, TOOL_ICON_SIZE, TOOL_ICON_SIZE);
 
     // Select the bitmap into the memory DC
     HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, hBitmap);
 
     //-----------------------------------------------
-    // Step 1: Fill icon background
+    // Step 1: Draw gradient background
     //-----------------------------------------------
-    HBRUSH brush = CreateSolidBrush(win11_background);   // Create background brush (Win11 theme color)
-    HBRUSH oldBrush = (HBRUSH)SelectObject(memDC, brush);
-    PatBlt(memDC, 0, 0, 64, 64, PATCOPY);                // Fill the whole 64x64 area
-    SelectObject(memDC, oldBrush);                       // Restore previous brush
-    DeleteObject(brush);                                 // Clean up brush
+    DrawIconBackground(memDC, extension);
 
     //-----------------------------------------------
-    // Step 2: Draw emoji/symbol text on icon
+    // Step 2: Draw extension label text on icon
     //-----------------------------------------------
     DrawIconText(memDC, extension);
 
     //-----------------------------------------------
-    // Step 3: Final cleanup and return
+    // Step 3: Draw subtle inner highlight for depth
+    //-----------------------------------------------
+    DrawIconHighlight(memDC);
+
+    //-----------------------------------------------
+    // Step 4: Final cleanup and return
     //-----------------------------------------------
     SelectObject(memDC, oldBitmap);                      // Restore previous bitmap
     DeleteDC(memDC);                                     // Free memory DC
@@ -58,53 +59,148 @@ HBITMAP ToolIconManager::CreateToolIcon(const std::wstring& extension, const std
 }
 
 ///////////////////////////////////////////////////////////////////////////
+// Function   : DrawIconBackground
+// Purpose    : Fills the icon with a modern gradient background using
+//              GDI+ for smooth color transitions per file extension.
+///////////////////////////////////////////////////////////////////////////
+void ToolIconManager::DrawIconBackground(HDC memDC, const std::wstring& extension) {
+    Graphics graphics(memDC);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+
+    // Get extension-specific gradient colors
+    Color topColor, bottomColor;
+    GetGradientColors(extension, topColor, bottomColor);
+
+    // Draw rounded rectangle background with gradient
+    LinearGradientBrush gradientBrush(
+        Point(0, 0), Point(0, TOOL_ICON_SIZE),
+        topColor, bottomColor
+    );
+
+    // Fill with rounded corners using GraphicsPath
+    GraphicsPath path;
+    int r = 10; // Corner radius
+    int w = TOOL_ICON_SIZE;
+    int h = TOOL_ICON_SIZE;
+    path.AddArc(0, 0, r * 2, r * 2, 180, 90);
+    path.AddArc(w - r * 2, 0, r * 2, r * 2, 270, 90);
+    path.AddArc(w - r * 2, h - r * 2, r * 2, r * 2, 0, 90);
+    path.AddArc(0, h - r * 2, r * 2, r * 2, 90, 90);
+    path.CloseFigure();
+
+    graphics.FillPath(&gradientBrush, &path);
+}
+
+///////////////////////////////////////////////////////////////////////////
+// Function   : DrawIconHighlight
+// Purpose    : Adds a subtle semi-transparent highlight at the top of the
+//              icon for a glossy 3D effect.
+///////////////////////////////////////////////////////////////////////////
+void ToolIconManager::DrawIconHighlight(HDC memDC) {
+    Graphics graphics(memDC);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+
+    // Semi-transparent white highlight on top half
+    LinearGradientBrush highlightBrush(
+        Point(0, 0), Point(0, TOOL_ICON_SIZE / 2),
+        Color(45, 255, 255, 255),   // Subtle white at top
+        Color(0, 255, 255, 255)     // Fully transparent at middle
+    );
+
+    // Highlight only the top portion with rounded corners
+    GraphicsPath highlightPath;
+    int r = 10;
+    int w = TOOL_ICON_SIZE;
+    int h = TOOL_ICON_SIZE / 2;
+    highlightPath.AddArc(1, 1, r * 2, r * 2, 180, 90);
+    highlightPath.AddArc(w - r * 2 - 1, 1, r * 2, r * 2, 270, 90);
+    highlightPath.AddLine(w - 1, h, 1, h);
+    highlightPath.CloseFigure();
+
+    graphics.FillPath(&highlightBrush, &highlightPath);
+}
+
+///////////////////////////////////////////////////////////////////////////
+// Function   : GetGradientColors
+// Purpose    : Returns modern gradient color pairs for each file extension.
+//              Uses rich, saturated colors for a premium look.
+///////////////////////////////////////////////////////////////////////////
+void ToolIconManager::GetGradientColors(const std::wstring& extension, Color& topColor, Color& bottomColor) {
+    if (extension == L".py") {
+        // Python — rich blue to deep navy
+        topColor = Color(255, 55, 118, 210);
+        bottomColor = Color(255, 25, 60, 140);
+    }
+    else if (extension == L".bat") {
+        // Batch — charcoal to near-black
+        topColor = Color(255, 75, 80, 90);
+        bottomColor = Color(255, 40, 42, 48);
+    }
+    else if (extension == L".exe") {
+        // Executable — vibrant teal to deep teal
+        topColor = Color(255, 0, 150, 180);
+        bottomColor = Color(255, 0, 95, 130);
+    }
+    else if (extension == L".ps1") {
+        // PowerShell — royal blue to deep indigo
+        topColor = Color(255, 60, 80, 180);
+        bottomColor = Color(255, 30, 40, 120);
+    }
+    else {
+        // Default — neutral dark gray gradient
+        topColor = Color(255, 100, 100, 110);
+        bottomColor = Color(255, 60, 60, 68);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////
 // Function   : GetIconBrush
 // Purpose    : Returns a solid color brush based on the file extension.
-//              Used for category-based background coloring.
+//              Kept for backwards compatibility but gradient is preferred.
 ///////////////////////////////////////////////////////////////////////////
 HBRUSH ToolIconManager::GetIconBrush(const std::wstring& extension) {
     if (extension == L".py") {
-        return CreateSolidBrush(RGB(52, 144, 220));    // Python = blue
+        return CreateSolidBrush(RGB(55, 118, 210));    // Python = rich blue
     }
     else if (extension == L".bat") {
-        return CreateSolidBrush(RGB(72, 72, 72));      // BAT = gray
+        return CreateSolidBrush(RGB(75, 80, 90));      // BAT = charcoal
     }
     else if (extension == L".exe") {
-        return CreateSolidBrush(RGB(0, 120, 215));     // EXE = blue
+        return CreateSolidBrush(RGB(0, 150, 180));     // EXE = teal
     }
     else if (extension == L".ps1") {
-        return CreateSolidBrush(RGB(1, 36, 86));       // PowerShell = dark blue
+        return CreateSolidBrush(RGB(60, 80, 180));     // PowerShell = royal blue
     }
     else {
-        return CreateSolidBrush(RGB(96, 94, 92));      // Default = neutral gray
+        return CreateSolidBrush(RGB(100, 100, 110));   // Default = neutral gray
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // Function   : DrawIconText
-// Purpose    : Draws a symbol or emoji on the icon using "Segoe UI Emoji" font
-//              centered in the 64x64 space.
+// Purpose    : Draws a clean, bold uppercase extension label centered in
+//              the icon. Uses "Segoe UI Variable" for crisp rendering.
 ///////////////////////////////////////////////////////////////////////////
 void ToolIconManager::DrawIconText(HDC memDC, const std::wstring& extension) {
-    SetBkMode(memDC, TRANSPARENT);                     // No background behind text
-    SetTextColor(memDC, RGB(0, 153, 51));              // Green color text
+    SetBkMode(memDC, TRANSPARENT);
+    SetTextColor(memDC, RGB(255, 255, 255));            // White text for contrast
 
-    // Create emoji-capable font (Segoe UI Emoji)
+    // Create a bold, clean font for the extension label
     HFONT iconFont = CreateFont(
-        44, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
-        L"Segoe UI Emoji"
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS,
+        L"Segoe UI Variable"
     );
 
-    // Select the emoji font
+    // Select the font
     HFONT oldFont = (HFONT)SelectObject(memDC, iconFont);
 
-    // Get the character to draw (emoji or extension)
+    // Get the label text (uppercase extension name)
     std::wstring displayText = GetIconSymbol(extension);
 
-    // Center the emoji in the 64x64 bitmap
-    RECT textRect = { 0, 12, 64, 52 };
+    // Center the text in the 64x64 bitmap
+    RECT textRect = { 0, 0, TOOL_ICON_SIZE, TOOL_ICON_SIZE };
     DrawText(memDC, displayText.c_str(), -1, &textRect,
         DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
@@ -115,32 +211,25 @@ void ToolIconManager::DrawIconText(HDC memDC, const std::wstring& extension) {
 
 ///////////////////////////////////////////////////////////////////////////
 // Function   : IsEmojiSymbol
-// Purpose    : Returns true if the given text is a known emoji symbol.
-// Note       : Only checks known ones used in this project.
+// Purpose    : Returns true if the given text is an emoji symbol.
+//              No longer used since we switched to text labels, kept for
+//              backwards compatibility.
 ///////////////////////////////////////////////////////////////////////////
 bool ToolIconManager::IsEmojiSymbol(const std::wstring& text) {
-    return (text == L"👽" || text == L"⚡");
+    return false;  // No emojis used in current design
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // Function   : GetIconSymbol
-// Purpose    : Returns an emoji or fallback text to be used for a tool icon.
-//              Uses emojis for known extensions, or shows text for others.
+// Purpose    : Returns a clean uppercase extension label for the icon.
+//              E.g., ".py" → "PY", ".bat" → "BAT"
 ///////////////////////////////////////////////////////////////////////////
 std::wstring ToolIconManager::GetIconSymbol(const std::wstring& extension) {
-    if (extension == L".py") {
-        return L"👽";       // Python = alien emoji
+    // Remove the dot and uppercase the extension
+    if (extension.length() > 1 && extension[0] == L'.') {
+        std::wstring result = extension.substr(1);
+        std::transform(result.begin(), result.end(), result.begin(), ::towupper);
+        return result;
     }
-    else if (extension == L".bat") {
-        return L"⚡";       // BAT = lightning bolt emoji
-    }
-    else {
-        // For other extensions, show uppercase text like "TXT" or "DLL"
-        if (extension.length() > 1 && extension[0] == L'.') {
-            std::wstring result = extension.substr(1); // Remove the dot
-            std::transform(result.begin(), result.end(), result.begin(), ::towupper);
-            return result;
-        }
-        return extension;
-    }
+    return extension;
 }

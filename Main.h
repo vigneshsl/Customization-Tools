@@ -53,6 +53,14 @@ constexpr int CONTENT_MARGIN      = 32;     // Left/right margin for tool grid
 constexpr int TOOL_ICON_SIZE      = 64;     // Width & height of tool icon bitmap
 constexpr int INVALIDATE_PADDING  = 4;      // Extra pixels to invalidate around cards
 
+// ─── Control IDs ────────────────────────────────────────────────────────
+#define HMENU_ID(id) ((HMENU)(INT_PTR)(id))   // Safe cast for CreateWindowEx
+constexpr int IDC_SEARCH_BOX     = 1001;      // Search edit control
+constexpr int IDC_STATUS_BAR     = 1002;      // Bottom status bar
+constexpr int IDC_SEARCH_PANEL   = 1003;      // Search container (owner-drawn)
+constexpr int IDC_CLEAR_BUTTON   = 1005;      // Search clear (x) button
+constexpr int IDC_STATUS_TIMER   = 1;         // Timer ID for status auto-reset
+
 // ─── Color Constants ────────────────────────────────────────────────────────
 
 // Windows 11 theme palette
@@ -165,6 +173,7 @@ private:
     bool showVScrollBar = false;                // Whether vertical scrollbar is visible
 
     // ── Core Methods ────────────────────────────────────────────────────────
+    void CreateUIControls();                                    // Build search box, status bar, clear button
     void ScanForTools();                                        // Discover tools via ToolScanner
     void FilterTools(const std::wstring& searchText);           // Filter tools by search query
     void LaunchTool(int index);                                 // Launch tool via ShellExecuteEx

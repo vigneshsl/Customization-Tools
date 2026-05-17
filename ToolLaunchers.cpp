@@ -60,9 +60,9 @@ ToolLauncher::ToolLauncher()
         CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
 
     subtitleFont = CreateFont(
-        23, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Times New Roman");
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
 
     // Instantiate helper components
     iconManager = make_unique<ToolIconManager>();
@@ -184,13 +184,14 @@ void ToolLauncher::ScanForTools()
 
     CalculateVirtualSize();
     CalculateToolPositions();           // Also calls UpdateScrollBars() internally
-    InvalidateRect(hwnd, nullptr, TRUE);
+    InvalidateRect(hwnd, nullptr, FALSE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // CalculateToolPositions — Assign screen rects to each tool based on view mode
 //
-// Grid mode: cards laid out in COLS_PER_ROW columns with TOOL_GRID_SPACING gap
+// Grid mode: RESPONSIVE — computes columns from available window width.
+//            Falls back to COLS_PER_ROW as maximum.
 // List mode: single column of 600px-wide rows
 ///////////////////////////////////////////////////////////////////////////////
 void ToolLauncher::CalculateToolPositions()
@@ -201,10 +202,17 @@ void ToolLauncher::CalculateToolPositions()
 
     if (viewMode == ViewMode::VIEW_GRID)
     {
+        // ── Responsive column calculation ───────────────────────────
+        RECT clientRect;
+        GetClientRect(hwnd, &clientRect);
+        int availableWidth = clientRect.right - 2 * CONTENT_MARGIN;
+        int colsPerRow = max(1, availableWidth / (TOOL_BUTTON_SIZE + TOOL_GRID_SPACING));
+        if (colsPerRow > COLS_PER_ROW) colsPerRow = COLS_PER_ROW;  // Cap at max
+
         for (size_t i = 0; i < filteredTools.size(); ++i)
         {
-            int col = static_cast<int>(i % COLS_PER_ROW);
-            int row = static_cast<int>(i / COLS_PER_ROW);
+            int col = static_cast<int>(i % colsPerRow);
+            int row = static_cast<int>(i / colsPerRow);
 
             int x = startX + col * (TOOL_BUTTON_SIZE + TOOL_GRID_SPACING);
             int y = startY + row * (TOOL_BUTTON_SIZE + TOOL_ROW_EXTRA);
@@ -221,7 +229,11 @@ void ToolLauncher::CalculateToolPositions()
     }
     else
     {
-        maxX = startX + 600 + CONTENT_MARGIN;
+        RECT clientRect;
+        GetClientRect(hwnd, &clientRect);
+        int listWidth = min(600, clientRect.right - 2 * CONTENT_MARGIN);
+
+        maxX = startX + listWidth + CONTENT_MARGIN;
         maxY = startY;
 
         for (size_t i = 0; i < filteredTools.size(); ++i)
@@ -230,7 +242,7 @@ void ToolLauncher::CalculateToolPositions()
 
             filteredTools[i].rect = {
                 startX - scrollX, y - scrollY,
-                startX - scrollX + 600,
+                startX - scrollX + listWidth,
                 y - scrollY + 50
             };
 
@@ -273,7 +285,7 @@ void ToolLauncher::FilterTools(const std::wstring& searchText)
     scrollX = scrollY = 0;
     CalculateVirtualSize();
     CalculateToolPositions();           // Also calls UpdateScrollBars() internally
-    InvalidateRect(hwnd, nullptr, TRUE);
+    InvalidateRect(hwnd, nullptr, FALSE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

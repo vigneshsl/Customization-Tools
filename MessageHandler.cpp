@@ -719,6 +719,104 @@ LRESULT CALLBACK ToolLauncher::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// CreateUIControls — Build all child controls (called once from WM_CREATE)
+//
+// Creates: search panel, search edit box, clear button, status bar.
+// Sets fonts, placeholder text, theming, and triggers initial tool scan.
+///////////////////////////////////////////////////////////////////////////////
+void ToolLauncher::CreateUIControls()
+{
+    // Initialize common Windows controls
+    INITCOMMONCONTROLSEX icex = { sizeof(icex), ICC_WIN95_CLASSES | ICC_STANDARD_CLASSES };
+    InitCommonControlsEx(&icex);
+
+    RECT clientRect;
+    GetClientRect(hwnd, &clientRect);
+
+    // ── Search Panel (owner-drawn container) ────────────────────────
+    const int SEARCH_MAX_WIDTH = 600;
+    const int SEARCH_HEIGHT = 48;
+    const int SEARCH_MARGIN = 60;
+
+    int searchWidth = min(SEARCH_MAX_WIDTH, clientRect.right - SEARCH_MARGIN);
+    int searchX = (clientRect.right - searchWidth) / 2;
+    int searchY = HEADER_HEIGHT + 16;
+
+    searchPanel = CreateWindowEx(
+        WS_EX_COMPOSITED, L"STATIC", L"",
+        WS_CHILD | WS_VISIBLE | SS_OWNERDRAW | SS_NOTIFY,
+        searchX, searchY, searchWidth, SEARCH_HEIGHT,
+        hwnd, HMENU_ID(IDC_SEARCH_PANEL), GetModuleHandle(NULL), NULL);
+
+    // ── Search Edit Box ─────────────────────────────────────────────
+    const int ICON_SPACE = 40;
+    const int CLEAR_SPACE = 36;
+    const int BOX_HEIGHT = 32;
+
+    searchBox = CreateWindowEx(
+        WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL,
+        searchX + ICON_SPACE,
+        searchY + (SEARCH_HEIGHT - BOX_HEIGHT) / 2,
+        searchWidth - ICON_SPACE - CLEAR_SPACE,
+        BOX_HEIGHT,
+        hwnd, HMENU_ID(IDC_SEARCH_BOX), GetModuleHandle(NULL), NULL);
+
+    // ── Clear Button ────────────────────────────────────────────────
+    clearButton = CreateWindowEx(
+        0, L"BUTTON", L"x",
+        WS_CHILD | BS_FLAT | WS_TABSTOP | BS_CENTER | BS_VCENTER,
+        searchX + searchWidth - 32,
+        searchY + (SEARCH_HEIGHT - 28) / 2,
+        28, 28,
+        hwnd, HMENU_ID(IDC_CLEAR_BUTTON), GetModuleHandle(NULL), NULL);
+
+    // ── Font Setup ──────────────────────────────────────────────────
+    modernFont = CreateFont(
+        18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, VARIABLE_PITCH | FF_SWISS,
+        L"Segoe UI Variable Text");
+
+    if (modernFont) {
+        SendMessage(searchBox, WM_SETFONT, (WPARAM)modernFont, TRUE);
+        SendMessage(clearButton, WM_SETFONT, (WPARAM)modernFont, TRUE);
+    }
+
+    // Search box placeholder and margins
+    SendMessage(searchBox, EM_SETCUEBANNER, TRUE, (LPARAM)L"Search tools...");
+    SendMessage(searchBox, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(8, 8));
+
+    // ── Status Bar ──────────────────────────────────────────────────
+    statusBar = CreateWindowEx(
+        0, STATUSCLASSNAME, NULL,
+        WS_CHILD | WS_VISIBLE | CCS_BOTTOM,
+        0, 0, 0, 0,
+        hwnd, HMENU_ID(IDC_STATUS_BAR), GetModuleHandle(NULL), NULL);
+
+    if (statusBar) {
+        int statusParts[] = { -1 };
+        SendMessage(statusBar, SB_SETPARTS, 1, (LPARAM)statusParts);
+        if (modernFont)
+            SendMessage(statusBar, WM_SETFONT, (WPARAM)modernFont, TRUE);
+        SendMessage(statusBar, SB_SETBKCOLOR, 0, STATUS_BAR_BG);
+    }
+
+    // ── Theming & Initial State ─────────────────────────────────────
+    SetWindowTheme(searchBox, L"Explorer", NULL);
+    SetWindowTheme(statusBar, L"Explorer", NULL);
+    ShowWindow(clearButton, SW_HIDE);
+
+    hoveredTool = -1;
+    lastHoveredTool = -1;
+    isTrackingMouse = false;
+
+    // Scan tools and set initial status
+    ScanForTools();
+    UpdateStatusText(L"Ready", static_cast<int>(filteredTools.size()));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helper Functions
 // ═══════════════════════════════════════════════════════════════════════════════

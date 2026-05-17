@@ -6,9 +6,15 @@
 // window, and runs the Win32 message loop until the user closes the app.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Main.h"
+// Ensure Unicode mode — must be defined BEFORE including Windows headers
+#ifndef UNICODE
 #define UNICODE
+#endif
+#ifndef _UNICODE
 #define _UNICODE
+#endif
+
+#include "Main.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,

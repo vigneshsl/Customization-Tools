@@ -27,52 +27,52 @@ void ToolLauncher::OnPaint(HDC hdc)
     //----------------------------------------------
     // 1. DRAW THE HEADER (TOP SECTION)
     //----------------------------------------------
-    RECT headerRect = { 0, 0, clientRect.right, HEADER_HEIGHT };
-
-    // Create a GDI+ graphics object for advanced drawing (gradients, antialiasing)
     Graphics graphics(hdcMem);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+    graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
-    // Create a vertical gradient brush from white to light gray
+    // Modern gradient header — soft blue-purple to white fade
     LinearGradientBrush gradientBrush(
-        Point(0, 0), Point(0, HEADER_HEIGHT),
-        Color(39, 245, 91, 204),     // Top gradient color (custom shade)
-        Color(250, 249, 248, 255)    // Bottom gradient color (off-white)
+        Point(0, 0), Point(clientRect.right, HEADER_HEIGHT),
+        Color(255, 230, 238, 255),    // Soft lavender-blue (left)
+        Color(255, 248, 240, 252)     // Soft pink-white (right)
     );
-
-    // Fill the header rectangle with the gradient
     graphics.FillRectangle(&gradientBrush, 0, 0, clientRect.right, HEADER_HEIGHT);
+
+    // Draw a subtle separator line below header
+    Pen separatorPen(Color(30, 100, 100, 180), 1.0f);
+    graphics.DrawLine(&separatorPen, 0, HEADER_HEIGHT - 1, clientRect.right, HEADER_HEIGHT - 1);
 
     // Set background mode for text to transparent (no solid background)
     SetBkMode(hdcMem, TRANSPARENT);
 
-    // Set main header text color (predefined Win11 color)
-    SetTextColor(hdcMem, win11_text);
-
-    // Use previously created header font (e.g., Segoe UI 32pt)
+    //----------------------------------------------
+    // 2. DRAW HEADER TITLE ("Customization Tools")
+    //----------------------------------------------
+    // Use pre-created header font (Segoe UI 32pt SemiBold)
     HFONT oldFont = (HFONT)SelectObject(hdcMem, headerFont);
 
-    //----------------------------------------------
-    // 2. DRAW SUBTITLE TEXT (e.g., "Customization Tools")
-    //----------------------------------------------
+    // Draw main title
+    SetTextColor(hdcMem, RGB(35, 40, 60));  // Dark navy for title
+    RECT titleRect = { 30, 12, clientRect.right - 30, 50 };
+    std::wstring titleText = L"Customization Tools";
+    DrawText(hdcMem, titleText.c_str(), -1, &titleRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
-    // Change text color to predefined subtitle color
+    //----------------------------------------------
+    // 3. DRAW SUBTITLE (tool count)
+    //----------------------------------------------
     SetTextColor(hdcMem, TOOLS_AVAILABLE_COLOR);
-
-    // Switch to pre-created subtitle font (avoids per-paint GDI handle leak)
     SelectObject(hdcMem, subtitleFont);
 
-    // Define rectangle area to draw the subtitle string
-    RECT subtitleRect = { 30, 50, clientRect.right - 30, HEADER_HEIGHT - 5 };
-
-    // Draw the subtitle text
-    std::wstring subtitleText = L"Customization Tools";
+    RECT subtitleRect = { 30, 48, clientRect.right - 30, HEADER_HEIGHT - 5 };
+    std::wstring subtitleText = std::to_wstring(filteredTools.size()) + L" Tools Available";
     DrawText(hdcMem, subtitleText.c_str(), -1, &subtitleRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
     // Restore old font
     SelectObject(hdcMem, oldFont);
 
     //----------------------------------------------
-    // 3. DRAW ALL TOOLS (icons and labels)
+    // 4. DRAW ALL TOOLS (icons and labels)
     //----------------------------------------------
     for (size_t i = 0; i < filteredTools.size(); ++i)
     {
@@ -84,7 +84,7 @@ void ToolLauncher::OnPaint(HDC hdc)
     }
 
     //----------------------------------------------
-    // 4. COPY TO SCREEN (BitBlt for smooth final paint)
+    // 5. COPY TO SCREEN (BitBlt for smooth final paint)
     //----------------------------------------------
     BitBlt(
         hdc,                  // Target: actual screen device context

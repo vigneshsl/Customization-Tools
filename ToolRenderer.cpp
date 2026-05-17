@@ -2,14 +2,18 @@
 #include <gdiplus.h>
 using namespace Gdiplus;
 
-// Constructor - stores the pointer to the ToolLauncher and creates cached fonts
+///////////////////////////////////////////////////////////////////////////////
+// Constructor — stores parent pointer, creates cached fonts for tool names
+///////////////////////////////////////////////////////////////////////////////
 ToolRenderer::ToolRenderer(ToolLauncher* launcher) : toolLauncher(launcher) {
-    nameFont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    nameFont = CreateFont(14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
 }
 
-// Destructor - clean up cached font
+///////////////////////////////////////////////////////////////////////////////
+// Destructor — clean up cached font
+///////////////////////////////////////////////////////////////////////////////
 ToolRenderer::~ToolRenderer() {
     if (nameFont) {
         DeleteObject(nameFont);
@@ -18,130 +22,91 @@ ToolRenderer::~ToolRenderer() {
 }
 
 //////////////////////////////////////////////////////////////////////
-// Function : DrawHeader
-// Purpose  : Draws the window header with gradient background, title, and tool count
-//////////////////////////////////////////////////////////////////////
-void ToolRenderer::DrawHeader(HDC hdc, const RECT& clientRect, int toolCount) {
-    Graphics graphics(hdc);  // GDI+ graphics for advanced rendering
-
-    // Draw gradient background in header area
-    LinearGradientBrush gradientBrush(
-        Point(0, 0), Point(0, HEADER_HEIGHT),
-        Color(255, 255, 255, 255), Color(250, 249, 248, 255)
-    );
-    graphics.FillRectangle(&gradientBrush, 0, 0, clientRect.right, HEADER_HEIGHT);
-
-    // Set transparent background for text
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, win11_text);
-
-    // Create and select header font
-    HFONT headerFont = CreateFont(32, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable");
-    HFONT oldFont = (HFONT)SelectObject(hdc, headerFont);
-
-    // Draw title text
-    std::wstring headerText = L"Tool Launcher";
-    RECT headerTextRect = { 30, 15, clientRect.right - 30, 50 };
-    DrawText(hdc, headerText.c_str(), -1, &headerTextRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-
-    // Set secondary text color and font
-    SetTextColor(hdc, win11_text_secondary);
-    HFONT subtitleFont = CreateFont(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI Variable Text");
-    SelectObject(hdc, subtitleFont);
-
-    // Draw subtitle (tool count)
-    std::wstring subtitleText = std::to_wstring(toolCount) + L" Tools available";
-    RECT subtitleRect = { 30, 50, clientRect.right - 30, HEADER_HEIGHT - 5 };
-    DrawText(hdc, subtitleText.c_str(), -1, &subtitleRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-
-    // Restore and delete fonts
-    SelectObject(hdc, oldFont);
-    DeleteObject(headerFont);
-    DeleteObject(subtitleFont);
-}
-
-//////////////////////////////////////////////////////////////////////
 // Function : DrawTool
-// Purpose  : Draws a tool card with icon and name
+// Purpose  : Draws a clean tool card — minimal draw calls for
+//            smooth performance. No card movement on hover.
 //////////////////////////////////////////////////////////////////////
 void ToolRenderer::DrawTool(HDC hdc, const ToolInfo& tool, int index, bool isHovered) {
-    RECT rect = tool.rect;  // Get tool position
+    RECT rect = tool.rect;
 
     Graphics graphics(hdc);
     graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-    graphics.SetTextRenderingHint(TextRenderingHintClearTypeGridFit);
 
-    // Color setup based on hover state
-    Color fillColor = isHovered ? Color(246, 246, 246, 255) : Color(255, 255, 255, 255);
-    Color borderColor = isHovered ? Color(25, 102, 255) : Color(225, 223, 221, 255);
+    int cornerRadius = 10;
 
-    // Draw tool card shadow
-    SolidBrush shadowBrush(Color(20, 0, 0, 0));
-    FillRoundedRectangle(&graphics, &shadowBrush, rect.left + 2, rect.top + 2,
-        TOOL_BUTTON_SIZE, TOOL_BUTTON_SIZE, 8);
+    // ── Single shadow (lightweight) ─────────────────────────────────
+    SolidBrush shadowBrush(Color(isHovered ? 25 : 15, 0, 0, 0));
+    FillRoundedRectangle(&graphics, &shadowBrush,
+        rect.left + 2, rect.top + 2,
+        TOOL_BUTTON_SIZE, TOOL_BUTTON_SIZE, cornerRadius);
 
-    // Draw tool card fill and border
+    // ── Card background ─────────────────────────────────────────────
+    Color fillColor = isHovered
+        ? Color(255, 240, 244, 255)   // Very subtle blue tint on hover
+        : Color(255, 255, 255, 255);  // Pure white
     SolidBrush fillBrush(fillColor);
-    Pen borderPen(borderColor, 2.0f);
-    FillRoundedRectangle(&graphics, &fillBrush, rect.left, rect.top,
-        TOOL_BUTTON_SIZE, TOOL_BUTTON_SIZE, 8);
-    DrawRoundedRectangle(&graphics, &borderPen, rect.left, rect.top,
-        TOOL_BUTTON_SIZE - 1, TOOL_BUTTON_SIZE - 1, 8);
+    FillRoundedRectangle(&graphics, &fillBrush,
+        rect.left, rect.top,
+        TOOL_BUTTON_SIZE, TOOL_BUTTON_SIZE, cornerRadius);
 
-    // Draw icon and name
+    // ── Card border ─────────────────────────────────────────────────
+    Color borderColor = isHovered
+        ? Color(255, 80, 130, 220)    // Blue on hover
+        : Color(255, 225, 225, 230);  // Light gray
+    Pen borderPen(borderColor, isHovered ? 1.5f : 1.0f);
+    DrawRoundedRectangle(&graphics, &borderPen,
+        rect.left, rect.top,
+        TOOL_BUTTON_SIZE - 1, TOOL_BUTTON_SIZE - 1, cornerRadius);
+
+    // ── Draw icon and name ──────────────────────────────────────────
     DrawToolIcon(hdc, tool, rect);
     DrawToolName(hdc, tool, rect);
 }
 
 //////////////////////////////////////////////////////////////////////
 // Function : DrawToolIcon
-// Purpose  : Draws icon or red placeholder if missing
+// Purpose  : Draws tool icon bitmap centered in card, or a styled
+//            placeholder if the icon is missing.
 //////////////////////////////////////////////////////////////////////
 void ToolRenderer::DrawToolIcon(HDC hdc, const ToolInfo& tool, const RECT& rect) {
+    int iconX = rect.left + (TOOL_BUTTON_SIZE - TOOL_ICON_SIZE) / 2;
+    int iconY = rect.top + 18;
+
     if (tool.icon) {
         HDC memDC = CreateCompatibleDC(hdc);
         HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, tool.icon);
-        int iconX = rect.left + (TOOL_BUTTON_SIZE - TOOL_ICON_SIZE) / 2;
-        int iconY = rect.top + 15;
         BitBlt(hdc, iconX, iconY, TOOL_ICON_SIZE, TOOL_ICON_SIZE, memDC, 0, 0, SRCCOPY);
         SelectObject(memDC, oldBitmap);
         DeleteDC(memDC);
     }
     else {
-        // Red box placeholder with label
-        HBRUSH redBrush = CreateSolidBrush(RGB(255, 0, 0));
-        RECT iconRect = { rect.left + (TOOL_BUTTON_SIZE - TOOL_ICON_SIZE) / 2, rect.top + 15,
-                          rect.left + (TOOL_BUTTON_SIZE - TOOL_ICON_SIZE) / 2 + TOOL_ICON_SIZE,
-                          rect.top + 15 + TOOL_ICON_SIZE };
-        FillRect(hdc, &iconRect, redBrush);
-        DeleteObject(redBrush);
+        // Simple gray placeholder
+        HBRUSH phBrush = CreateSolidBrush(RGB(210, 210, 218));
+        RECT iconRect = { iconX, iconY, iconX + TOOL_ICON_SIZE, iconY + TOOL_ICON_SIZE };
+        FillRect(hdc, &iconRect, phBrush);
+        DeleteObject(phBrush);
 
         SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, RGB(255, 255, 255));
-        DrawText(hdc, L"NO ICON", -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SetTextColor(hdc, RGB(130, 130, 140));
+        DrawText(hdc, L"?", -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 }
 
 //////////////////////////////////////////////////////////////////////
 // Function : DrawToolName
-// Purpose  : Draws formatted tool name below icon
+// Purpose  : Draws formatted tool name below icon.
 //////////////////////////////////////////////////////////////////////
 void ToolRenderer::DrawToolName(HDC hdc, const ToolInfo& tool, const RECT& rect) {
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(102, 102, 153));
+    SetTextColor(hdc, RGB(50, 52, 60));
 
     std::wstring name = tool.displayName;
     std::replace(name.begin(), name.end(), L'_', L' ');
     ToolLauncher::ConvertTopropercase(name);
 
-    // Use cached font (avoids GDI handle leak from per-draw CreateFont)
     HFONT oldFont = (HFONT)SelectObject(hdc, nameFont);
 
-    RECT textRect = { rect.left + 10, rect.top + 85, rect.right - 10, rect.bottom - 15 };
+    RECT textRect = { rect.left + 6, rect.top + 88, rect.right - 6, rect.bottom - 5 };
     DrawText(hdc, name.c_str(), -1, &textRect,
         DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_EDITCONTROL);
 
@@ -149,8 +114,7 @@ void ToolRenderer::DrawToolName(HDC hdc, const ToolInfo& tool, const RECT& rect)
 }
 
 //////////////////////////////////////////////////////////////////////
-// Function : FillRoundedRectangle
-// Purpose  : Fills rounded rectangle using GDI+ path
+// FillRoundedRectangle / DrawRoundedRectangle — GDI+ helpers
 //////////////////////////////////////////////////////////////////////
 void ToolRenderer::FillRoundedRectangle(Graphics* graphics, Brush* brush, INT x, INT y, INT w, INT h, INT r) {
     GraphicsPath path;
@@ -162,10 +126,6 @@ void ToolRenderer::FillRoundedRectangle(Graphics* graphics, Brush* brush, INT x,
     graphics->FillPath(brush, &path);
 }
 
-//////////////////////////////////////////////////////////////////////
-// Function : DrawRoundedRectangle
-// Purpose  : Draws border of rounded rectangle using GDI+
-//////////////////////////////////////////////////////////////////////
 void ToolRenderer::DrawRoundedRectangle(Graphics* graphics, Pen* pen, INT x, INT y, INT w, INT h, INT r) {
     GraphicsPath path;
     path.AddArc(x, y, r * 2, r * 2, 180, 90);
